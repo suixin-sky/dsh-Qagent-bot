@@ -1,0 +1,18 @@
+dsh-qqbot 增强版
+================
+
+本仓库包含 @tencent-connect/dsh-qqbot v0.5.2 的修改版构建（dist），在此基础上增加了群聊人格、
+聊天归档、表情包、模型召唤、ComfyUI 图片/视频生成等能力。
+
+上游项目：https://github.com/tencent-connect/dsh-qqbot
+上游许可：MIT License, Copyright (c) 2026 Tencent Connect（见 LICENSE）
+
+本仓库的修改部分由仓库维护者完成，同样以 MIT 许可发布。
+
+重要说明
+--------
+
+- 本仓库是**非官方修改版**，与 Tencent Connect 无隶属关系。
+- 仓库只包含**编译后的 JS**（上游发布形态），不包含 TypeScript 源码。
+- 不包含：人设提示词、表情包图片、ComfyUI 工作流、聊天记录、任何凭据。
+- 使用前请自行确认 QQ 开放平台的相关规范与内容合规要求。

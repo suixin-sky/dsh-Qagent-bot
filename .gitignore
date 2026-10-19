@@ -1,0 +1,22 @@
+# 依赖与构建产物
+node_modules/
+
+# 运行时数据（仅忽略仓库根目录下的同名目录，别动 templates/）
+/chatlog/
+/stickers/
+/ComfyUI/*.json
+/.comfy-tmp/
+
+# 本地人设（按需取消注释以纳入版本管理）
+# /personas/
+
+# 日志与备份
+*.log
+*.bak
+*.tmp
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

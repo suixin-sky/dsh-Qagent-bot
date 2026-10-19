@@ -1,0 +1,61 @@
+import { ConfigSchema } from "./config.js";
+import { bootstrapGateway } from "./gateway/index.js";
+import { getProfileDir, resolveEnv } from "./shared/index.js";
+import { ensureCredentials, persistCredentialsToProfile, registerBoundCredentialRoutes } from "./setup/index.js";
+// ── Cordis 插件元数据 ──
+export const name = 'im-qqbot';
+export const inject = ['agents'];
+export const Config = ConfigSchema;
+// ── 插件主体 ──
+export async function apply(ctx, config) {
+    const agents = ctx.agents;
+    const logger = ctx.logger ?? console;
+    let appId = resolveEnv(config.appId, 'QQBOT_APPID');
+    let appSecret = resolveEnv(config.appSecret, 'QQBOT_SECRET');
+    // ── 凭据缺失时唤起扫码绑定 ──
+    if (!appId || !appSecret) {
+        logger.info('凭据未配置，启动扫码绑定...');
+        // 关键：不 await 扫码结果。boot 会等 Loader 树稳定（loader.await()），
+        // 无限期等待用户扫码会阻塞 Host ready——Desktop 界面无法进入、
+        // Web 的 URL 延迟输出。绑定编排（路由/呈现/生命周期）在
+        // ensureCredentials 的同步阶段即完成，凭据就绪后由异步链接管。
+        void ensureCredentials(ctx, { logger, config: { ...config } })
+            .then((credentials) => {
+            if (!credentials) {
+                // null 包括：扫码取消、手动提交（已另行持久化）、流程失败
+                logger.info('扫码绑定流程结束（未获取凭据或已手动配置）');
+                return;
+            }
+            // 持久化到 profile：成功则等待热更新重载，失败则用凭据直接启动。
+            // 注意：不写入 process.env——resolveEnv 的 env 回退属于用户显式
+            // export 的配置语义，运行时写入会与解绑清理不对齐（解绑后 HMR
+            // 重载的新 fiber 仍从 env 读到旧凭据，状态停留 bound）
+            const persisted = persistCredentialsToProfile(credentials, getProfileDir() ?? undefined, logger);
+            if (persisted) {
+                // 写入 cordis.patch.yml 会触发 dsh 热更新，自动重新加载本插件。
+                logger.info('配置已保存，等待热更新重新加载...');
+                return;
+            }
+            logger.warn('凭据未能持久化，本次进程将使用环境变量凭据启动（重启后需重新绑定）');
+            // 本 fiber 已激活（ctx 有效），直接以凭据启动网关
+            void bootstrapGateway(ctx, agents, {
+                ...config,
+                appId: credentials.appId,
+                appSecret: credentials.appSecret,
+            }, logger).catch((err) => {
+                logger.error(`网关启动失败: ${err instanceof Error ? err.message : String(err)}`);
+            });
+        })
+            .catch((err) => {
+            // 全兜：unhandled rejection 会被宿主 fail-loud 判致命
+            logger.error(`扫码绑定流程异常: ${err instanceof Error ? err.message : String(err)}`);
+        });
+        // apply 立即完成，插件 fiber 进入 ACTIVE，Host ready 不再被阻塞
+        return;
+    }
+    // 已绑定：注册常驻路由（状态回显 + 手动编辑/更换凭据 + 配置编辑）
+    registerBoundCredentialRoutes(ctx, logger, appId, { ...config });
+    const resolvedConfig = { ...config, appId, appSecret };
+    await bootstrapGateway(ctx, agents, resolvedConfig, logger);
+}
+//# sourceMappingURL=index.js.map
